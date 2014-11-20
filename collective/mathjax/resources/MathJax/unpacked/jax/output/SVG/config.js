@@ -1,3 +1,6 @@
+/* -*- Mode: Javascript; indent-tabs-mode:nil; js-indent-level: 2 -*- */
+/* vim: set ts=2 et sw=2 tw=80: */
+
 /*************************************************************
  *
  *  MathJax/jax/output/SVG/config.js
@@ -7,7 +10,7 @@
  *
  *  ---------------------------------------------------------------------
  *  
- *  Copyright (c) 2011-2012 Design Science, Inc.
+ *  Copyright (c) 2011-2014 The MathJax Consortium
  * 
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -24,7 +27,7 @@
 
 MathJax.OutputJax.SVG = MathJax.OutputJax({
   id: "SVG",
-  version: "2.1",
+  version: "2.4.0",
   directory: MathJax.OutputJax.directory + "/SVG",
   extensionDir: MathJax.OutputJax.extensionDir + "/SVG",
   autoloadDir: MathJax.OutputJax.directory + "/SVG/autoload",
@@ -55,12 +58,30 @@ MathJax.OutputJax.SVG = MathJax.OutputJax({
                          // use "nn%" for a portion of the window size
     },
     
+    merrorStyle: {
+      fontSize:"90%", color:"#C00", background:"#FF8",
+      border: "1px solid #C00", padding:"3px"
+    },
+    
     styles: {
       ".MathJax_SVG_Display": {
         "text-align": "center",
         margin:       "1em 0em"
       },
       
+      //
+      //  For mtextFontInherit version of \texttt{}
+      //
+      ".MathJax_SVG .MJX-monospace": {
+        "font-family": "monospace"
+      },
+      
+      //
+      //  For mtextFontInherit version of \textsf{}
+      //
+      ".MathJax_SVG .MJX-sans-serif": {
+        "font-family": "sans-serif"
+      },
       "#MathJax_SVG_Tooltip": {
         "background-color": "InfoBackground", color: "InfoText",
         border: "1px solid black",
@@ -68,7 +89,8 @@ MathJax.OutputJax.SVG = MathJax.OutputJax({
         "-webkit-box-shadow": "2px 2px 5px #AAAAAA", // Safari 3 and Chrome
         "-moz-box-shadow": "2px 2px 5px #AAAAAA",    // Forefox 3.5
         "-khtml-box-shadow": "2px 2px 5px #AAAAAA",  // Konqueror
-        padding: "3px 4px"
+        padding: "3px 4px",
+        "z-index": 401
       }
     }
   }

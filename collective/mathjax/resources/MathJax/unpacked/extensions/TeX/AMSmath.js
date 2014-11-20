@@ -1,3 +1,6 @@
+/* -*- Mode: Javascript; indent-tabs-mode:nil; js-indent-level: 2 -*- */
+/* vim: set ts=2 et sw=2 tw=80: */
+
 /*************************************************************
  *
  *  MathJax/extensions/TeX/AMSmath.js
@@ -6,7 +9,7 @@
  *  
  *  ---------------------------------------------------------------------
  *  
- *  Copyright (c) 2009-2012 Design Science, Inc.
+ *  Copyright (c) 2009-2014 The MathJax Consortium
  * 
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -22,10 +25,12 @@
  */
 
 MathJax.Extension["TeX/AMSmath"] = {
-  version: "2.1",
+  version: "2.4.0",
   
   number: 0,        // current equation number
   startNumber: 0,   // current starting equation number (for when equation is restarted)
+  IDs: {},          // IDs used in previous equations
+  eqIDs: {},        // IDs used in this equation
   labels: {},       // the set of labels
   eqlabels: {},     // labels in the current equation
   refs: []          // array of jax with unresolved references
@@ -113,11 +118,11 @@ MathJax.Hub.Register.StartupHook("TeX Jax Ready",function () {
     },
     
     environment: {
-      align:         ['AMSarray',null,true,true,  'rlrlrlrlrlrl',COLS([5/18,2,5/18,2,5/18,2,5/18,2,5/18,2,5/18])],
-      'align*':      ['AMSarray',null,false,true, 'rlrlrlrlrlrl',COLS([5/18,2,5/18,2,5/18,2,5/18,2,5/18,2,5/18])],
+      align:         ['AMSarray',null,true,true,  'rlrlrlrlrlrl',COLS([0,2,0,2,0,2,0,2,0,2,0])],
+      'align*':      ['AMSarray',null,false,true, 'rlrlrlrlrlrl',COLS([0,2,0,2,0,2,0,2,0,2,0])],
       multline:      ['Multline',null,true],
       'multline*':   ['Multline',null,false],
-      split:         ['AMSarray',null,false,false,'rl',COLS([5/18])],
+      split:         ['AMSarray',null,false,false,'rl',COLS([0])],
       gather:        ['AMSarray',null,true,true,  'c'],
       'gather*':     ['AMSarray',null,false,true, 'c'],
       
@@ -125,7 +130,7 @@ MathJax.Hub.Register.StartupHook("TeX Jax Ready",function () {
       'alignat*':    ['AlignAt',null,false,true],
       alignedat:     ['AlignAt',null,false,false],
 
-      aligned:       ['AlignedArray',null,null,null,'rlrlrlrlrlrl',COLS([5/18,2,5/18,2,5/18,2,5/18,2,5/18,2,5/18]),".5em",'D'],
+      aligned:       ['AlignedArray',null,null,null,'rlrlrlrlrlrl',COLS([0,2,0,2,0,2,0,2,0,2,0]),".5em",'D'],
       gathered:      ['AlignedArray',null,null,null,'c',null,".5em",'D'],
 
       subarray:      ['Array',null,null,null,null,COLS([0,0,0,0]),"0.1em",'S',1],
@@ -159,8 +164,13 @@ MathJax.Hub.Register.StartupHook("TeX Jax Ready",function () {
       var arg = this.trimSpaces(this.GetArgument(name)), tag = arg;
       if (!star) {arg = CONFIG.formatTag(arg)}
       var global = this.stack.global; global.tagID = tag;
-      if (global.notags) {TEX.Error(name+" not allowed in "+global.notags+" environment")}
-      if (global.tag) {TEX.Error("Multiple "+name)}
+      if (global.notags) {
+        TEX.Error(["CommandNotAllowedInEnv",
+                   "%1 not allowed in %2 environment",
+                   name,global.notags]
+        );
+      }
+      if (global.tag) {TEX.Error(["MultipleCommand","Multiple %1",name])}
       global.tag = MML.mtd.apply(MML,this.InternalMath(arg)).With({id:CONFIG.formatID(tag)});
     },
     HandleNoTag: function (name) {
@@ -175,10 +185,11 @@ MathJax.Hub.Register.StartupHook("TeX Jax Ready",function () {
       var global = this.stack.global, label = this.GetArgument(name);
       if (label === "") return;
       if (!AMS.refUpdate) {
-        if (global.label) {TEX.Error("Multiple "+name+"'s")}
+        if (global.label) {TEX.Error(["MultipleCommand","Multiple %1",name])}
         global.label = label;
-        if (AMS.labels[label] || AMS.eqlabels[label]) {TEX.Error("Label '"+label+"' mutiply defined")}
-        AMS.eqlabels[label] = "???"; // will be replaced by tag value later
+        if (AMS.labels[label] || AMS.eqlabels[label])
+          {TEX.Error(["MultipleLabel","Label '%1' multiply defined",label])}
+        AMS.eqlabels[label] = {tag:"???", id:""}; // will be replaced by tag value later
       }
     },
     
@@ -188,11 +199,10 @@ MathJax.Hub.Register.StartupHook("TeX Jax Ready",function () {
     HandleRef: function (name,eqref) {
       var label = this.GetArgument(name);
       var ref = AMS.labels[label] || AMS.eqlabels[label];
-      if (!ref) {ref = "??"; AMS.badref = !AMS.refUpdate}
-      var tag = ref; if (eqref) {tag = CONFIG.formatTag(tag)}
-      if (CONFIG.useLabelIds) {ref = label}
+      if (!ref) {ref = {tag:"???",id:""}; AMS.badref = !AMS.refUpdate}
+      var tag = ref.tag; if (eqref) {tag = CONFIG.formatTag(tag)}
       this.Push(MML.mrow.apply(MML,this.InternalMath(tag)).With({
-        href:CONFIG.formatURL(CONFIG.formatID(ref)), "class":"MathJax_ref"
+        href:CONFIG.formatURL(ref.id), "class":"MathJax_ref"
       }));
     },
     
@@ -200,7 +210,7 @@ MathJax.Hub.Register.StartupHook("TeX Jax Ready",function () {
      *  Handle \DeclareMathOperator
      */
     HandleDeclareOp: function (name) {
-      var limits = (this.GetStar() ? "\\limits" : "");
+      var limits = (this.GetStar() ? "" : "\\nolimits");
       var cs = this.trimSpaces(this.GetArgument(name));
       if (cs.charAt(0) == "\\") {cs = cs.substr(1)}
       var op = this.GetArgument(name);
@@ -209,7 +219,7 @@ MathJax.Hub.Register.StartupHook("TeX Jax Ready",function () {
     },
     
     HandleOperatorName: function (name) {
-      var limits = (this.GetStar() ? "\\limits" : "\\nolimits");
+      var limits = (this.GetStar() ? "" : "\\nolimits");
       var op = this.trimSpaces(this.GetArgument(name));
       op = op.replace(/\*/g,'\\text{*}').replace(/-/g,'\\text{-}');
       this.string = '\\mathop{\\rm '+op+'}'+limits+" "+this.string.slice(this.i);
@@ -221,7 +231,10 @@ MathJax.Hub.Register.StartupHook("TeX Jax Ready",function () {
      */
     HandleShove: function (name,shove) {
       var top = this.stack.Top();
-      if (top.type !== "multline" || top.data.length) {TEX.Error(name+" must come at the beginning of the line")}
+      if (top.type !== "multline" || top.data.length) {
+        TEX.Error(["CommandAtTheBeginingOfLine",
+                   "%1 must come at the beginning of the line",name]);
+      }
       top.data.shove = shove;
     },
     
@@ -235,7 +248,8 @@ MathJax.Hub.Register.StartupHook("TeX Jax Ready",function () {
       var frac = MML.mfrac(TEX.Parse('\\strut\\textstyle{'+num+'}',this.stack.env).mml(),
                            TEX.Parse('\\strut\\textstyle{'+den+'}',this.stack.env).mml());
       lr = ({l:MML.ALIGN.LEFT, r:MML.ALIGN.RIGHT,"":""})[lr];
-      if (lr == null) {TEX.Error("Illegal alignment specified in "+name)}
+      if (lr == null)
+        {TEX.Error(["IllegalAlign","Illegal alignment specified in %1",name])}
       if (lr) {frac.numalign = frac.denomalign = lr}
       this.Push(frac);
     },
@@ -252,10 +266,11 @@ MathJax.Hub.Register.StartupHook("TeX Jax Ready",function () {
       var den = this.ParseArg(name);
       var frac = MML.mfrac(num,den);
       if (thick !== "") {frac.linethickness = thick}
-      if (left || right) {frac = MML.mfenced(frac).With({open: left, close: right})}
+      if (left || right) {frac = TEX.fenced(left,frac,right)}
       if (style !== "") {
         var STYLE = (["D","T","S","SS"])[style];
-        if (STYLE == null) {TEX.Error("Bad math style for "+name)}
+        if (STYLE == null)
+          {TEX.Error(["BadMathStyleFor","Bad math style for %1",name])}
         frac = MML.mstyle(frac);
         if (STYLE === "D") {frac.displaystyle = true; frac.scriptlevel = 0}
           else {frac.displaystyle = false; frac.scriptlevel = style - 1}
@@ -306,7 +321,10 @@ MathJax.Hub.Register.StartupHook("TeX Jax Ready",function () {
       var n, valign, align = "", spacing = [];
       if (!taggable) {valign = this.GetBrackets("\\begin{"+begin.name+"}")}
       n = this.GetArgument("\\begin{"+begin.name+"}");
-      if (n.match(/[^0-9]/)) {TEX.Error("Argument to \\begin{"+begin.name+"} must me a positive integer")}
+      if (n.match(/[^0-9]/)) {
+        TEX.Error(["PositiveIntegerArg","Argument to %1 must me a positive integer",
+                  "\\begin{"+begin.name+"}"]);
+      }
       while (n > 0) {align += "rl"; spacing.push("0em 0em"); n--}
       spacing = spacing.join(" ");
       if (taggable) {return this.AMSarray(begin,numbered,taggable,align,spacing)}
@@ -331,7 +349,8 @@ MathJax.Hub.Register.StartupHook("TeX Jax Ready",function () {
      *  Check for bad nesting of equation environments
      */
     checkEqnEnv: function () {
-      if (this.stack.global.eqnenv) {TEX.Error("Erroneous nesting of equation structures")}
+      if (this.stack.global.eqnenv)
+        {TEX.Error(["ErroneousNestingEq","Erroneous nesting of equation structures"])}
       this.stack.global.eqnenv = true;
     },
     
@@ -376,7 +395,10 @@ MathJax.Hub.Register.StartupHook("TeX Jax Ready",function () {
     GetDelimiterArg: function (name) {
       var c = this.trimSpaces(this.GetArgument(name));
       if (c == "") {return null}
-      if (TEXDEF.delimiter[c] == null) {TEX.Error("Missing or unrecognized delimiter for "+name)}
+      if (TEXDEF.delimiter[c] == null) {
+        TEX.Error(["MissingOrUnrecognizedDelim",
+                   "Missing or unrecognized delimiter for %1",name]);
+      }
       return this.convertDelimiter(c);
     },
     
@@ -402,7 +424,7 @@ MathJax.Hub.Register.StartupHook("TeX Jax Ready",function () {
       if (!global.notag) {
         AMS.number++; global.tagID = CONFIG.formatNumber(AMS.number.toString());
         var mml = TEX.Parse("\\text{"+CONFIG.formatTag(global.tagID)+"}",{}).mml();
-        global.tag = MML.mtd(mml.With({id:CONFIG.formatID(global.tagID)}));
+        global.tag = MML.mtd(mml).With({id:CONFIG.formatID(global.tagID)});
       }
     },
   
@@ -412,11 +434,44 @@ MathJax.Hub.Register.StartupHook("TeX Jax Ready",function () {
     getTag: function () {
       var global = this.global, tag = global.tag; global.tagged = true;
       if (global.label) {
-        AMS.eqlabels[global.label] = global.tagID;
         if (CONFIG.useLabelIds) {tag.id = CONFIG.formatID(global.label)}
+        AMS.eqlabels[global.label] = {tag:global.tagID, id:tag.id};        
       }
-      delete global.tag; delete global.tagID; delete global.label;
+      //
+      //  Check for repeated ID's (either in the document or as
+      //  a previous tag) and find a unique related one. (#240)
+      //
+      if (document.getElementById(tag.id) || AMS.IDs[tag.id] || AMS.eqIDs[tag.id]) {
+        var i = 0, ID;
+        do {i++; ID = tag.id+"_"+i}
+          while (document.getElementById(ID) || AMS.IDs[ID] || AMS.eqIDs[ID]);
+        tag.id = ID; if (global.label) {AMS.eqlabels[global.label].id = ID}
+      }
+      AMS.eqIDs[tag.id] = 1;
+      this.clearTag();
       return tag;
+    },
+    clearTag: function () {
+      var global = this.global;
+      delete global.tag; delete global.tagID; delete global.label;
+    },
+
+    /*
+     *  Set the initial <mo> to have form="infix" and lspace="0",
+     *  skipping any initial space or empty braces (TeXAtom with child
+     *  being an empty inferred row).
+     */
+    fixInitialMO: function (data) {
+      for (var i = 0, m = data.length; i < m; i++) {
+        if (data[i] && (data[i].type !== "mspace" &&
+           (data[i].type !== "texatom" || (data[i].data[0] && data[i].data[0].data.length)))) {
+          if (data[i].isEmbellished()) {
+            var core = data[i].CoreMO();
+            core.form = MML.FORM.INFIX; core.lspace = MML.LENGTH.MEDIUMMATHSPACE;
+          }
+          break;
+        }
+      }
     }
   });
   
@@ -432,13 +487,18 @@ MathJax.Hub.Register.StartupHook("TeX Jax Ready",function () {
       stack.global.tagged = !numbered && !stack.global.forcetag; // prevent automatic tagging in starred environments
     },
     EndEntry: function () {
+      if (this.table.length) {this.fixInitialMO(this.data)}
       var mtd = MML.mtd.apply(MML,this.data);
       if (this.data.shove) {mtd.columnalign = this.data.shove}
       this.row.push(mtd);
       this.data = [];
     },
     EndRow: function () {
-      if (this.row.length != 1) {TEX.Error("multline rows must have exactly one column")}
+      if (this.row.length != 1) {
+        TEX.Error(["MultlineRowsOneCol",
+                   "The rows within the %1 environment must have exactly one column",
+                   "multline"]);
+      }
       this.table.push(this.row); this.row = [];
     },
     EndTable: function () {
@@ -474,13 +534,18 @@ MathJax.Hub.Register.StartupHook("TeX Jax Ready",function () {
       stack.global.notags = (taggable ? null : name);
       stack.global.tagged = !numbered && !stack.global.forcetag; // prevent automatic tagging in starred environments
     },
+    EndEntry: function () {
+      if (this.row.length) {this.fixInitialMO(this.data)}
+      this.row.push(MML.mtd.apply(MML,this.data));
+      this.data = [];
+    },
     EndRow: function () {
       var mtr = MML.mtr;
       if (!this.global.tag && this.numbered) {this.autoTag()}
       if (this.global.tag && !this.global.notags) {
         this.row = [this.getTag()].concat(this.row);
         mtr = MML.mlabeledtr;
-      }
+      } else {this.clearTag()}
       if (this.numbered) {delete this.global.notag}
       this.table.push(mtr.apply(MML,this.row)); this.row = [];
     },
@@ -537,12 +602,13 @@ MathJax.Hub.Register.StartupHook("TeX Jax Ready",function () {
   TEX.prefilterHooks.Add(function (data) {
     AMS.display = data.display;
     AMS.number = AMS.startNumber;  // reset equation numbers (in case the equation restarted)
-    AMS.eqlabels = {}; AMS.badref = false;
+    AMS.eqlabels = AMS.eqIDs = {}; AMS.badref = false;
     if (AMS.refUpdate) {AMS.number = data.script.MathJax.startNumber}
   });
   TEX.postfilterHooks.Add(function (data) {
     data.script.MathJax.startNumber = AMS.startNumber;
     AMS.startNumber = AMS.number;                // equation numbers for next equation
+    MathJax.Hub.Insert(AMS.IDs,AMS.eqIDs);       // save IDs from this equation
     MathJax.Hub.Insert(AMS.labels,AMS.eqlabels); // save labels from this equation
     if (AMS.badref && !data.math.texError) {AMS.refs.push(data.script)}  // reprocess later
   });
@@ -570,7 +636,7 @@ MathJax.Hub.Register.StartupHook("TeX Jax Ready",function () {
   //
   TEX.resetEquationNumbers = function (n,keepLabels) {
     AMS.startNumber = (n || 0);
-    if (!keepLabels) {AMS.labels = {}}
+    if (!keepLabels) {AMS.labels = AMS.IDs = {}}
   }
 
   /******************************************************************************/

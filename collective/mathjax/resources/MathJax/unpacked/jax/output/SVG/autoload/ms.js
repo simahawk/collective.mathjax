@@ -1,3 +1,6 @@
+/* -*- Mode: Javascript; indent-tabs-mode:nil; js-indent-level: 2 -*- */
+/* vim: set ts=2 et sw=2 tw=80: */
+
 /*************************************************************
  *
  *  MathJax/jax/output/SVG/autoload/ms.js
@@ -6,7 +9,7 @@
  *
  *  ---------------------------------------------------------------------
  *  
- *  Copyright (c) 2011-2012 Design Science, Inc.
+ *  Copyright (c) 2011-2014 The MathJax Consortium
  * 
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -22,7 +25,7 @@
  */
 
 MathJax.Hub.Register.StartupHook("SVG Jax Ready",function () {
-  var VERSION = "2.1";
+  var VERSION = "2.4.0";
   var MML = MathJax.ElementJax.mml,
       SVG = MathJax.OutputJax.SVG;
   
@@ -33,18 +36,11 @@ MathJax.Hub.Register.StartupHook("SVG Jax Ready",function () {
       var values = this.getValues("lquote","rquote");
       var variant = this.SVGgetVariant(), scale = this.SVGgetScale();
       var text = this.data.join("");  // FIXME:  handle mglyph?
-      var pattern = [];
-      if (values.lquote.length === 1) {pattern.push(this.SVGquoteRegExp(values.lquote))}
-      if (values.rquote.length === 1) {pattern.push(this.SVGquoteRegExp(values.rquote))}
-      if (pattern.length) {text = text.replace(RegExp("("+pattern.join("|")+")","g"),"\\$1")}
       svg.Add(this.SVGhandleVariant(variant,scale,values.lquote+text+values.rquote));
       svg.Clean();
       this.SVGhandleColor(svg);
       this.SVGsaveData(svg);
       return svg;
-    },
-    SVGquoteRegExp: function (string) {
-      return string.replace(/([.*+?|{}()\[\]\\])/g,"\\$1");
     }
   });
   MML.ms.prototype.defaults.mathvariant = 'monospace';

@@ -1,3 +1,6 @@
+/* -*- Mode: Javascript; indent-tabs-mode:nil; js-indent-level: 2 -*- */
+/* vim: set ts=2 et sw=2 tw=80: */
+
 /*************************************************************
  *
  *  MathJax/jax/output/SVG/autoload/mmultiscripts.js
@@ -6,7 +9,7 @@
  *
  *  ---------------------------------------------------------------------
  *  
- *  Copyright (c) 2011-2012 Design Science, Inc.
+ *  Copyright (c) 2011-2014 The MathJax Consortium
  * 
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -22,15 +25,14 @@
  */
 
 MathJax.Hub.Register.StartupHook("SVG Jax Ready",function () {
-  var VERSION = "2.1";
+  var VERSION = "2.4.0";
   var MML = MathJax.ElementJax.mml,
       SVG = MathJax.OutputJax.SVG;
   
   MML.mmultiscripts.Augment({
     toSVG: function (HW,D) {
       this.SVGgetStyles();
-      var svg = this.SVG(); this.SVGhandleSpace(svg);
-      var scale = this.SVGgetScale();
+      var svg = this.SVG(), scale = this.SVGgetScale(svg); this.SVGhandleSpace(svg);
       var base = (this.data[this.base] ? this.SVGdataStretched(this.base,HW,D) : SVG.BBOX.G().Clean());
       var x_height = SVG.TeX.x_height * scale,
           s = SVG.TeX.scriptspace * scale * .75;  // FIXME: .75 can be removed when IC is right?
@@ -90,6 +92,8 @@ MathJax.Hub.Register.StartupHook("SVG Jax Ready",function () {
       svg.Clean();
       this.SVGhandleColor(svg);
       this.SVGsaveData(svg);
+      var data = this.SVGdata;
+      data.dx = dx; data.s = s; data.u = u, data.v = v; data.delta = delta;      
       return svg;
     },
     SVGgetScripts: function (s) {
