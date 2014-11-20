@@ -10,8 +10,14 @@ http://www.mathjax.org/demos/tex-samples/
 
 http://en.wikipedia.org/wiki/MathJax
 
+MathJax version: 2.4
 
 Author
 ======
 
 Johannes Raggam, BlueDynamics Alliance <raggam-nl [at] adm [dot] at>
+
+Contributors
+============
+
+Simone Orsi, Abstract <simahawk [at] gmail [dot] com>

@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-version = '1.1.1'
+version = '2.4'
 
 setup(name='collective.mathjax',
       version=version,

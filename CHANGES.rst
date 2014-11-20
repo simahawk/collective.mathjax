@@ -1,6 +1,14 @@
 Changes
 =======
 
+2.4 (2014-11-20)
+------------------
+
+- Upgrade to MathJax 2.4.
+- Jump package version to 2.4 to match MathJax's one.
+  [simahawk]
+
+
 1.1.1 (2013-02-05)
 ------------------
 
